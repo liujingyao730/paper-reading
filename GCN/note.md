@@ -1,11 +1,16 @@
 # GCN相关的基础文献
 图卷积网络是针对于图结构数据的有力分析工具，这四篇文章是图卷积网络领域内比较重要的基础性工作，对于我们理解和使用图卷积网络有着很重要的意义
 ## 目录
-* [before deep learing graph neural network](###图卷积)
-* [convolutional neural networks on graphs with fast localized spectral filtering](#图卷积的快速计算)
-* [Semi-supervised classification with graph convolutional network-iclr2017](#一阶近似与半监督学习)
-* [Deeper insights into graph convolutional networks for semi-supervised learning aaai2018](#deeper-insights)
-* [Diffusion convolutional recurrent neural network Data-driven traffic forecasting](#扩散卷积)
+* [谱视角(Spectral method)](#谱视角)
+    * [before deep learing graph neural network](#图卷积)
+    * [convolutional neural networks on graphs with fast localized spectral filtering](#图卷积的快速计算)
+    * [Semi-supervised classification with graph convolutional network-iclr2017](#一阶近似与半监督学习)
+    * [Deeper insights into graph convolutional networks for semi-supervised learning aaai2018](#deeper-insights)
+    * [Diffusion convolutional recurrent neural network Data-driven traffic forecasting](#扩散卷积)
+* 空间视角(spatial method)
+    * [Geometric deep learning on graphs and manifolds using mixture model CNNs CVPR2017](#一般化的框架)
+    * [Inductive Representation Learning on Large Graphs](#推断式的图表征)
+## 谱视角
 ### 图卷积
 在Euclidean domains(图像，声音信号等类型)的数据中，卷积操作就是将函数进行傅里叶变换映射到频域空间，之后进行相乘再做逆傅里叶变换得到的结果。对于图结构的数据，如果我们想要将卷积领域进行扩展，就需要合理的定义在图领域的傅里叶变换，进而可以定义图领域的卷积操作。  
 把Euclidean domains中的傅里叶变换迁移拓展到图领域中，最核心的步骤在于把拉普拉斯算子的特征函数$e^{i\omega t}$在图领域中做出对应的映射，而这个对应的映射就是图拉普拉斯矩阵的特征向量
@@ -94,5 +99,25 @@ $$h^r_i=\theta(h^{r-1}_i+\sum_{j\in\mathcal{N}(i)}\frac{h_j^{r-1}}{\sqrt{d_id_j}
 但是图卷积网络与传统卷积网络不同的一点在于，并不是越深层的卷积层数就会带来更好的效果，事实上，在半监督分类问题中，层数过多会降低整体网络效果：
 ![卷积网络层数与分类问题](../pics/gcn_layer.png)
 这源自于拉普拉斯平滑本身的特性，快速的进行连续几层的拉普拉斯平滑会导致图中联通区域内的节点的值趋于一致。
-而这样的特性本身限制了图卷积网络的效果，深层的网络会导致过度平滑而使得连通区域趋于一致，但浅层的网络并不能使节点充分利用到整个图的信息，在这篇文章中作者提出了一种联合训练的方式来避免在深层图卷积网络中带来的过度平滑的问题，同时又可以通过深层的网络将信息传播到整个图中
+而这样的特性本身限制了图卷积网络的效果，深层的网络会导致过度平滑而使得连通区域趋于一致，但浅层的网络并不能使节点充分利用到整个图的信息，在这篇文章中作者提出了一种联合训练的方式来避免在深层图卷积网络中带来的过度平滑的问题，同时又可以通过深层的网络将信息传播到整个图中。
+文章的思路是只用浅层的图卷积（一般是两层），然后通过自训练与随机游走过程的联合训练的方式增强在半监督学习中的效果。
+##### 随机游走模型：
+根据选定的随机游走模型来确定，确定下来随机游走的分布矩阵$\mathcal{P}$，其中$\mathcal{P}_{ij}$表示从第$i$个节点随机游走到第$j$节点终止的分布概率，这样我们就可以根据这个随机游走分布矩阵$\mathcal{P}$，针对每一个类别$k$，可以计算一个置信度向量
+$$\textbf{p}=\sum_{j\in\mathcal{S}_k}\mathcal{P}_{:,j}$$
+其中$\textbf{p}_i$是第$i$个节点属于第$k$类的置信度，在这个向量中选取出前$k$项，作为半监督学习中补充的被标记数据，作为扩张的数据集
+##### 自训练过程
+自训练过程是指在卷积训练中，会根据图卷积网络的输出结果，计算所有类别中前k项置信度最高的作为补充被标记数据集
+通过取这两个过程的并集，模型在半监督学习分类问题中取得了最好的效果
 ### 扩散卷积
+扩散卷积(Diffusion Convolutional)是根据随机游走过程而实现的一种图卷积的形式，这种形式的图卷积就是将图中信息传递的过程与随机游走过程类比，随机游走过程就是我们假设从一个节点$i$出发，以一定规律随机选取周围的节点进行游走，同时以一定概率$\alpha$终止，如果下一步节点选取的方式是均匀随机选取，那么就会有得到一个随机游走最终结果的分布矩阵：
+$$\mathcal{P}=\sum_{i=0}^{\infty}\alpha(1-\alpha)^i(D_O^{-1}W)^i$$
+其中$D_o$是节点的出度组成的对角矩阵，仿照这个过程就可以得到扩散卷积的计算方式：
+$$\textbf{X}_{:,p}*_{\mathcal{G}}f_{\theta}=\sum_{k=0}^{K-1}(\theta_{k,1}(D_o^{-1}W)^k+\theta_{k,2}(D_i^{-1}W)^k)\textbf{X}_{:,p}$$
+这样的图卷积替代传统的图卷积在GCRNN中的作用会得到更好的效果
+
+## 空间视角
+以上的内容都是来自于从谱视角进行的对图特征的提取，这种方法下的图卷积有着严密的数学推导与很好的实验效果，但是一个严峻的问题就在于这样的图卷积操作依赖于图的拉普拉斯矩阵，当图的结构发生变化时往往不能进行很好的泛化，就如下图中展示的：
+![拉普拉斯矩阵与图卷积结果](../pics/拉普拉斯矩阵变换.png)
+传统的图卷积(LeNet)与在固定的图结构(前两行)下学习得到的图卷积网络(ChebNet)都取得了很好的效果，但是当数据变成从超像素中提取的时候，因为这是不同图片之间根据超像素算法所提取到的图结构并不相同，就导致了图的结构发生了变化，这是传统的图卷积的准确率产生了严重的下滑，最多下降到75%左右，因此一种不依赖于拉普拉矩阵的图卷积算法需要被探索和研究，这就是空间视角下的图卷积方式
+### 一般化的框架
+### 推断式的图表征
