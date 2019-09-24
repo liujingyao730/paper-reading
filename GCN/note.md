@@ -7,9 +7,9 @@
     * [Semi-supervised classification with graph convolutional network-iclr2017](#一阶近似与半监督学习)
     * [Deeper insights into graph convolutional networks for semi-supervised learning aaai2018](#deeper-insights)
     * [Diffusion convolutional recurrent neural network Data-driven traffic forecasting](#扩散卷积)
-* 空间视角(spatial method)
+* [空间视角(spatial method)](#空间视角)
     * [Geometric deep learning on graphs and manifolds using mixture model CNNs CVPR2017](#一般化的框架)
-    * [Inductive Representation Learning on Large Graphs](#推断式的图表征)
+    * [Inductive Representation Learning on Large Graphs](#推断式的图卷积)
 ## 谱视角
 ### 图卷积
 在Euclidean domains(图像，声音信号等类型)的数据中，卷积操作就是将函数进行傅里叶变换映射到频域空间，之后进行相乘再做逆傅里叶变换得到的结果。对于图结构的数据，如果我们想要将卷积领域进行扩展，就需要合理的定义在图领域的傅里叶变换，进而可以定义图领域的卷积操作。  
@@ -120,4 +120,21 @@ $$\textbf{X}_{:,p}*_{\mathcal{G}}f_{\theta}=\sum_{k=0}^{K-1}(\theta_{k,1}(D_o^{-
 ![拉普拉斯矩阵与图卷积结果](../pics/拉普拉斯矩阵变换.png)
 传统的图卷积(LeNet)与在固定的图结构(前两行)下学习得到的图卷积网络(ChebNet)都取得了很好的效果，但是当数据变成从超像素中提取的时候，因为这是不同图片之间根据超像素算法所提取到的图结构并不相同，就导致了图的结构发生了变化，这是传统的图卷积的准确率产生了严重的下滑，最多下降到75%左右，因此一种不依赖于拉普拉矩阵的图卷积算法需要被探索和研究，这就是空间视角下的图卷积方式
 ### 一般化的框架
-### 推断式的图表征
+在这篇CVPR2017年的文章中，提出了一般化的可以用于泛化卷积操作的框架，在这个框架之下可以通过设置不同的伪坐标(pseudo-coordinate)形式，与权重计算函数就可以实现对不同形式的卷积。在这个框架之下，可以实现之前各种对于图的卷积与对于流形的卷积
+我们将需要进行卷积的输入（图像，音频，图结构的数据，流形等）上的一个节点记做$x$，在不同的输入情况下，我们都考虑节点$y\in\mathcal{N}(x)$，其中$\mathcal{N}(x)$表示$x$的邻域节点，包括$x$本身。对于每一个$y$都可以专门设计出一种伪坐标形式$\textbf{u}(x, y)$，针对不同的伪坐标值，设计出权值计算函数（也可以叫卷积核）：$\textbf{w}_{\Theta}(\textbf{u})=(w_1(\textbf{u}),......,w_J(\textbf{u})))$，权值函数由一些可学习的参数$\Theta$确定，每一个局部的卷积操作表示为：
+$$D_j(x)f=\sum_{j\in\mathcal{N}(x)}w_j(\textbf{u}(x,y))f(y),\quad j=1,...,J$$
+那么整体上在非欧几里得空间下的卷积形式就可以写作：
+$$(f*g)(x)=\sum^J_{j=1}g_jD_j(x)f$$
+在这个框架设计中，最关键的步骤是伪坐标的确定与权值函数的计算，以下是一些卷积形式在本文框架之下的具体设定：
+![坐标与权重函数在不同卷积形式下的体现](../pics/general_frame_work.png)
+上式中GCNN与ACNN是应用于流形之中的卷积形式，GCN是前面描述的基于谱视角下的卷积，DCNN是扩散卷积
+在这篇文章中，在总结出整体一般化的框架之后，提出了自己所实现的卷积操作，这种卷积操作并没有采用人工设置固定的权重计算函数，而是选择了一种可以通过训练而不断更新的权值计算函数：
+$$w_j(\textbf{u})=\exp(-\frac{1}{2}(\textbf{u}-\mu_j)^T\Sigma^{-1}(\textbf{u}-\mu_j))$$
+上式中$\mu_j,\Sigma$是需要学习的参数，其中为了降低学习的难度，$\Sigma$限制为对角矩阵，这样的情况下就已经足够提供相当的函数复杂度以达到更好的模型效果。如果要追求更加输入的更高维表示，可以通过在坐标值输入网络之前进行相应的非线性变换达到。在不同的应用中采取不同的坐标形式，搭配上式表示的权值计算函数就可以得到比以往模型更好的效果。
+当我们仔细观察这个权值计算函数，就会发现这是多维高斯分布的一种形式，前述的非欧空间内的卷积就可以解释为一种高斯混合模型，通过学习一种能够描述节点周围相关性的高斯混合模型来合理的分配对周围节点信息的接纳程度。
+### 推断式的图卷积
+谱视角下，图的结构是固定的，对于图中没有出现过的节点，甚至是全新的图时，原有训练得到的卷积核参数往往不能很好的适应图的变化，因此这篇文章提出了一种可以进行推断式任务的图卷积模型：GraphSAGE(Graph SAmple aggerGatE)
+这种模型不同于之前图卷积方面的方法，直接通过学习的方式得到每一个节点在下一层的隐层状态向量，而是学习不同的AGGERGATE函数用来收集不同跳步数或者搜索深度的信息，在测试阶段直接应用这些训练好的AGGERGATE函数对没有出现过的节点应用，文中提出了非监督的学习方式，但本文的模型同样也能适用于监督学习的训练方式
+首先我们看一下整体算法的流程：
+![GraphSAGE算法流程](../pics/alg_graphsage.png)
+这个算法的具体含义就是，对不同搜索深度的邻域节点，采用不同的AGGREGATE函数进行信息收集，将从周围节点收集到的信息，通过拼接的方式与之前深度的信息进行融合
