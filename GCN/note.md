@@ -10,6 +10,9 @@
 * [空间视角(spatial method)](#空间视角)
     * [Geometric deep learning on graphs and manifolds using mixture model CNNs CVPR2017](#一般化的框架)
     * [Inductive Representation Learning on Large Graphs](#推断式的图卷积)
+    * [Adaptive Graph Convolutional Neural Networks AAAI2018](#根据输入动态变化的拉普拉斯矩阵)
+    * [Structure-Aware Convolutional Neural Networks NIPS2018](#对结构的学习)
+    * [Graph attention networks ICLR2018](#注意力机制的引入)
 ## 谱视角
 ### 图卷积
 在Euclidean domains(图像，声音信号等类型)的数据中，卷积操作就是将函数进行傅里叶变换映射到频域空间，之后进行相乘再做逆傅里叶变换得到的结果。对于图结构的数据，如果我们想要将卷积领域进行扩展，就需要合理的定义在图领域的傅里叶变换，进而可以定义图领域的卷积操作。  
@@ -135,6 +138,26 @@ $$w_j(\textbf{u})=\exp(-\frac{1}{2}(\textbf{u}-\mu_j)^T\Sigma^{-1}(\textbf{u}-\m
 ### 推断式的图卷积
 谱视角下，图的结构是固定的，对于图中没有出现过的节点，甚至是全新的图时，原有训练得到的卷积核参数往往不能很好的适应图的变化，因此这篇文章提出了一种可以进行推断式任务的图卷积模型：GraphSAGE(Graph SAmple aggerGatE)
 这种模型不同于之前图卷积方面的方法，直接通过学习的方式得到每一个节点在下一层的隐层状态向量，而是学习不同的AGGERGATE函数用来收集不同跳步数或者搜索深度的信息，在测试阶段直接应用这些训练好的AGGERGATE函数对没有出现过的节点应用，文中提出了非监督的学习方式，但本文的模型同样也能适用于监督学习的训练方式
+##### 算法流程 
 首先我们看一下整体算法的流程：
 ![GraphSAGE算法流程](../pics/alg_graphsage.png)
 这个算法的具体含义就是，对不同搜索深度的邻域节点，采用不同的AGGREGATE函数进行信息收集，将从周围节点收集到的信息，通过拼接的方式与之前深度的信息进行融合
+并行化进行时，并行的执行算法框架中内循环内容。同时为了保障不同节点之间因为临近节点数不一样而导致的计算轨迹差异，每一轮邻域的生成都采用了随机采样固定大小集合的方式
+##### 损失函数
+在完全非监督学习的情形下，采用以下损失函数对网络整体参数进行更新：
+$$J_{\mathcal{G}}(\textbf{z}_u)=-\log(\sigma(\textbf{z}_u^T\textbf{z}_v))-Q\cdot\mathbb{E}_{v_n\sim P_n(v)}\log(\sigma(-\textbf{z}_u^T\textbf{z}_{v_n}))$$
+上式中$\textbf{z}_u$表示算法框架中节点$u$这一层的输出，$v$表示与$u$节点通过一个固定步数的随机游走相连接的节点，$P_n$表示负采样的分布状况，$Q$是负采样的样本数目。这样的损失函数是在要求相关的节点之间尽量相似，不相关的节点尽量有差异。在不同的任务下，这个损失函数可以根据实际需要进行改变，GraphSAGE模型也同样可以适用于监督学习的问题
+##### Aggregator Architecture
+算法框架中的AGGREGATE需要是对称的，也就是说不会因为采样的顺序而导致最终的输出结果不同，也要可训练，也就是说需要可以回传梯度，另外还需要具备较好的特征表示能力，在文章中主要实验了以下三种不同的AGGREGATE：
+* Mean aggregator
+这一部分就是通过对采样得到的隐层状态集合$\{h_u,u\in\mathcal{N}(v)\}$，中按元素进行求均值操作得到
+* LSTM aggregator
+LSTM比简单的均值操作有更加复杂的函数表现能力，但是由于它本身不是对称的，本文只是简单的将输入置换成领域节点的随机采样
+* Pooling aggregator
+最后一种aggregator是先将输入整体经过一个全连接网络，然后再进行按元素位置的pool操作，也就是说：
+$$AGGREGATE_k^{pool}=\max(\{\sigma(\textbf{W}_{pool}h_{u_i}^k+\textbf{b}), \forall u_i\in\mathcal{N}(v)\})$$
+实验结果显示Pooling aggregator达到较好的效果，LSTM aggregator其次
+
+### 根据输入动态变化的拉普拉斯矩阵
+### 对结构的学习
+### 注意力机制的引入
