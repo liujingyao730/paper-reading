@@ -7,12 +7,13 @@
     * [Semi-supervised classification with graph convolutional network-iclr2017](#一阶近似与半监督学习)
     * [Deeper insights into graph convolutional networks for semi-supervised learning aaai2018](#deeper-insights)
     * [Diffusion convolutional recurrent neural network Data-driven traffic forecasting](#扩散卷积)
+    * [Adaptive Graph Convolutional Neural Networks AAAI2018](#根据输入动态变化的拉普拉斯矩阵)
 * [空间视角(spatial method)](#空间视角)
     * [Geometric deep learning on graphs and manifolds using mixture model CNNs CVPR2017](#一般化的框架)
     * [Inductive Representation Learning on Large Graphs](#推断式的图卷积)
-    * [Adaptive Graph Convolutional Neural Networks AAAI2018](#根据输入动态变化的拉普拉斯矩阵)
-    * [Structure-Aware Convolutional Neural Networks NIPS2018](#对结构的学习)
+    * [Structure-Aware Convolutional Neural Networks NIPS2018](#具备局部拓扑结构感知能力的图卷积)
     * [Graph attention networks ICLR2018](#注意力机制的引入)
+    * [Gaan Gated attention networks for learning on large and spatiotemporal graphs](#注意力机制的进一步延伸)
 ## 谱视角
 ### 图卷积
 在Euclidean domains(图像，声音信号等类型)的数据中，卷积操作就是将函数进行傅里叶变换映射到频域空间，之后进行相乘再做逆傅里叶变换得到的结果。对于图结构的数据，如果我们想要将卷积领域进行扩展，就需要合理的定义在图领域的傅里叶变换，进而可以定义图领域的卷积操作。  
@@ -118,6 +119,10 @@ $$\mathcal{P}=\sum_{i=0}^{\infty}\alpha(1-\alpha)^i(D_O^{-1}W)^i$$
 $$\textbf{X}_{:,p}*_{\mathcal{G}}f_{\theta}=\sum_{k=0}^{K-1}(\theta_{k,1}(D_o^{-1}W)^k+\theta_{k,2}(D_i^{-1}W)^k)\textbf{X}_{:,p}$$
 这样的图卷积替代传统的图卷积在GCRNN中的作用会得到更好的效果
 
+### 根据输入动态变化的拉普拉斯矩阵
+
+在传统的谱视角下的卷积中，图的拉普拉斯矩阵是给定的，但是由于往往这种拉普拉斯矩阵是根据物理世界的设定(例如分子之间的化学键)或者手工指定的，这就导致有可能两个相连节点之间的关系可能并没有不相连节点之间的关系更大，因此本文提出了一种根据数据动态学习拉普拉斯矩阵的算法，同时由于拉普拉斯矩阵本身是根据特征变换和设定的距离矩阵计度量方式计算出来，只需要要求输入的样本具有相同的输入特征维数即可，不要求具备相同的拓扑结构，因此是一种可以适应不同图结构的方法
+
 ## 空间视角
 以上的内容都是来自于从谱视角进行的对图特征的提取，这种方法下的图卷积有着严密的数学推导与很好的实验效果，但是一个严峻的问题就在于这样的图卷积操作依赖于图的拉普拉斯矩阵，当图的结构发生变化时往往不能进行很好的泛化，就如下图中展示的：
 ![拉普拉斯矩阵与图卷积结果](../pics/拉普拉斯矩阵变换.png)
@@ -158,6 +163,28 @@ LSTM比简单的均值操作有更加复杂的函数表现能力，但是由于�
 $$AGGREGATE_k^{pool}=\max(\{\sigma(\textbf{W}_{pool}h_{u_i}^k+\textbf{b}), \forall u_i\in\mathcal{N}(v)\})$$
 实验结果显示Pooling aggregator达到较好的效果，LSTM aggregator其次
 
-### 根据输入动态变化的拉普拉斯矩阵
-### 对结构的学习
+### 具备局部拓扑结构感知能力的图卷积
+在传统的卷积之中的局部结构表示只能应对局部具备相同拓扑结构的数据，因此为了解决这个弊端，文中提出了一种更加一般化的表示方式，可以量化的对局部拓扑结构进行编码，进一步的提出了可以感知到局部结构的卷积方式
+首先，我们需要对传统的卷积做一些形式上的变化，对于一个一维卷积操作，给定一个输入$\textbf{x}\in\mathbb{R}^n$和一个卷积核$\textbf{w}\in\mathbb{R}^{2m+1}$，那么在第$i$个位置的输出值就可以写成：
+$$\bar{y}_i = \textbf{w}^T\textbf{x}_i=\sum_{i-m<j<i+m}w_{j-i+m}x_j,\quad i\in\{1,2,...,n\}$$
+在这里$\textbf{x}_i=[x_{i-m},...,x_{i+m}]^T$是第$i$个节点的局部输入，对于任何一个可以表示称为单变量函数的卷积核都可以被等价的表示成：
+$$\bar{y}_i = \textbf{f}_{\mathcal{R}}^T\textbf{x}_i=\sum_{i-m<j<i+m}f(j-i+m)x_j,\quad i\in\{1,2,...,n\}$$
+其中$f(\cdot)$可以被称为函数式的卷积核，$\mathcal{R}=\{j-i+m|i-m<j<i+m\}，\textbf{f}_{\mathcal{R}}=\{f(r)|r\in\mathcal{R}\}$，在一般化的结构中，我们可以将$\mathcal{R}$看做是包含着一个节点与它邻居节点相连关系的一种编码方式，称其为局部结构表示。
+严格意义上，不管是否是源自于欧式空间的数据，都可以被表示为图的形式$\mathcal{G}=(\mathcal{V},\mathcal{E}, \textbf{R})$，其中$\mathcal{V}$存储着节点上的数据，$\mathcal{E}$存储节点之间的相连关系，而节点关系矩阵$\textbf{R}$表征着图中的结构信息，具体的说就是对于一个节点$i\in\mathcal{V}$，它的局部表示可以写作：
+$$\mathcal{R}_i=\{r_{ji}|e_{ji}\in\mathcal{E}\},\quad i\in\{1,2,...,n\}$$
+上式中$r_{ji}$是矩阵$\textbf{R}$中对应位置的元素，这样我们把保存了所有局部信息节点的集合记做$\mathcal{S}=\{\mathcal{R}_i|i\in\mathcal{V}\}$，这样我们可以定义一个可以感知局部结构的卷积：
+$$\bar{y}_i = \textbf{f}_{\mathcal{R}_i}^T\textbf{x}_i=\sum_{e_{ji}\in\mathcal{E}}f(r_{ji})x_j,\quad i\in\{1,2,...,n\}$$
+这里$\textbf{f}_{\mathcal{R}_i}=\{f(r_{ji})|e_{ji}\in\mathcal{E}\}$，根据不同的$\mathcal{R}_i$而变化，这样就可以具备从不同的局拓扑结构收集信息的能力
+要将这样的方式应用深度学习的实际应用之中还需要解决两个关键性的问题：1）如何应对无穷多可能的局部结构(这里主要是根据$r_{ji}$的变化)；2）如何确定下来关系矩阵$\textbf{R}$
+##### Polynomial parametrization for functional filters
+对于参数式的卷积核可以采用利用函数多项式的形式进行逼近的办法：对于一个任意的单变量函数$h(x)$，都可以通过一系列基函数$\{h_1(x),h_2(x),...\}$和相对应的参数$\{v_1,v_2,...\}$来进行拟合：
+$$h(x)\approx\sum_{k=1}^tv_kh_k(x)$$
+因此，文中采取了切比雪夫多项式的方式进行逼近，那么通过截断的切比雪夫多项式就可以实现上面描述的函数式的卷积：
+$$\bar{y}_i=\sum_{e_{ji}\in\mathcal{E}}f(r_{ji})x_j=\sum_{e_{ji}\in\mathcal{E}}(\sum_{k=1}^tv_kh_k(r_{ji}))x_j,\quad i\in\{1,2,...,n\}$$
+通过这种拟合的方式就可以实现对不同局部连接强度的边的不同权重分配
+##### Local structure representations learning
+接下来就是连接强度矩阵$\textbf{R}$的产生，$\textbf{R}$是通过从数据中学习得到的，为了保持不通通道之间输入的结构一致性，每一层卷积中都只学习一个固定的局部结构表示集合$\mathcal{S}=\{\mathcal{R}_i|i\in\mathcal{V}\}$。对于一个多通道的输入值$\textbf{x}\in\mathbb{R}^{n\times c}$，其中$n$表示节点数目$c$表示通道数，局部的结构表示可以通过以下的方式得到：
+$$\mathcal{R}_i=\{r_{ji}=T(\bar{x}_j^T\textbf{M}\textbf{x}_i)|e_{ji}\in\mathcal{E}\}, \quad i\in\{1,2,...,n\}$$
+上式中$\textbf{M}\in\mathbb{R}^{c\times c}$是一个可学习的参数，$T(\cdot)$是Tanh函数。这样$\textbf{R}$不一定会是一个对称矩阵，表示这样的方法有对有向结构也具备学习能力
 ### 注意力机制的引入
+### 注意力机制的进一步延伸
