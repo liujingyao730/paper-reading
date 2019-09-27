@@ -8,6 +8,7 @@
     * [Deeper insights into graph convolutional networks for semi-supervised learning aaai2018](#deeper-insights)
     * [Diffusion convolutional recurrent neural network Data-driven traffic forecasting](#扩散卷积)
     * [Adaptive Graph Convolutional Neural Networks AAAI2018](#根据输入动态变化的拉普拉斯矩阵)
+    * [Fastgcn fast learning with graph convolutional networks via importance sampling iclr2018](#采样与推断式的学习)
 * [空间视角(spatial method)](#空间视角)
     * [Geometric deep learning on graphs and manifolds using mixture model CNNs CVPR2017](#一般化的框架)
     * [Inductive Representation Learning on Large Graphs](#推断式的图卷积)
