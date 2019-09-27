@@ -2,19 +2,19 @@
 图卷积网络是针对于图结构数据的有力分析工具，这四篇文章是图卷积网络领域内比较重要的基础性工作，对于我们理解和使用图卷积网络有着很重要的意义
 ## 目录
 * [谱视角(Spectral method)](#谱视角)
-    * [before deep learing graph neural network](#图卷积)
-    * [convolutional neural networks on graphs with fast localized spectral filtering](#图卷积的快速计算)
-    * [Semi-supervised classification with graph convolutional network-iclr2017](#一阶近似与半监督学习)
+    * [before deep learing graph neural network--图卷积](#图卷积)
+    * [convolutional neural networks on graphs with fast localized spectral filtering--图卷积的快速计算](#图卷积的快速计算)
+    * [Semi-supervised classification with graph convolutional network-iclr2017--一阶近似与半监督学习](#一阶近似与半监督学习)
     * [Deeper insights into graph convolutional networks for semi-supervised learning aaai2018](#deeper-insights)
-    * [Diffusion convolutional recurrent neural network Data-driven traffic forecasting](#扩散卷积)
-    * [Adaptive Graph Convolutional Neural Networks AAAI2018](#根据输入动态变化的拉普拉斯矩阵)
-    * [Fastgcn fast learning with graph convolutional networks via importance sampling iclr2018](#采样与推断式的学习)
+    * [Diffusion convolutional recurrent neural network Data-driven traffic forecasting--扩散卷积](#扩散卷积)
+    * [Adaptive Graph Convolutional Neural Networks AAAI2018--根据输入动态变化的拉普拉斯矩阵](#根据输入动态变化的拉普拉斯矩阵)
+    * [Fastgcn fast learning with graph convolutional networks via importance sampling iclr2018--采样与推断式的学习](#采样与推断式的学习)
 * [空间视角(spatial method)](#空间视角)
-    * [Geometric deep learning on graphs and manifolds using mixture model CNNs CVPR2017](#一般化的框架)
-    * [Inductive Representation Learning on Large Graphs](#推断式的图卷积)
-    * [Structure-Aware Convolutional Neural Networks NIPS2018](#具备局部拓扑结构感知能力的图卷积)
-    * [Graph attention networks ICLR2018](#注意力机制的引入)
-    * [Gaan Gated attention networks for learning on large and spatiotemporal graphs](#注意力机制的进一步延伸)
+    * [Geometric deep learning on graphs and manifolds using mixture model CNNs CVPR2017--一般化的框架](#一般化的框架)
+    * [Inductive Representation Learning on Large Graphs--推断式的图卷积](#推断式的图卷积)
+    * [Structure-Aware Convolutional Neural Networks NIPS2018--具备局部拓扑结构感知能力的图卷积](#具备局部拓扑结构感知能力的图卷积)
+    * [Graph attention networks ICLR2018--注意力机制的引入](#注意力机制的引入)
+    * [Gaan Gated attention networks for learning on large and spatiotemporal graphs--注意力机制的进一步延伸](#注意力机制的进一步延伸)
 ## 谱视角
 ### 图卷积
 在Euclidean domains(图像，声音信号等类型)的数据中，卷积操作就是将函数进行傅里叶变换映射到频域空间，之后进行相乘再做逆傅里叶变换得到的结果。对于图结构的数据，如果我们想要将卷积领域进行扩展，就需要合理的定义在图领域的傅里叶变换，进而可以定义图领域的卷积操作。  
@@ -121,6 +121,24 @@ $$\textbf{X}_{:,p}*_{\mathcal{G}}f_{\theta}=\sum_{k=0}^{K-1}(\theta_{k,1}(D_o^{-
 ### 根据输入动态变化的拉普拉斯矩阵
 
 在传统的谱视角下的卷积中，图的拉普拉斯矩阵是给定的，但是由于往往这种拉普拉斯矩阵是根据物理世界的设定(例如分子之间的化学键)或者手工指定的，这就导致有可能两个相连节点之间的关系可能并没有不相连节点之间的关系更大，因此本文提出了一种根据数据动态学习拉普拉斯矩阵的算法，同时由于拉普拉斯矩阵本身是根据特征变换和设定的距离矩阵计度量方式计算出来，只需要要求输入的样本具有相同的输入特征维数即可，不要求具备相同的拓扑结构，因此是一种可以适应不同图结构的方法
+这篇文章中整体的结构仍然是传统的图卷积的方式，但是增加了一个SGC-LL(Spectral Graph Convolution layer with Laplacian Learing)层，这一层的构建需要有以下几个关键点：
+##### Training Metric for Graph Update
+在图结构的数据中，有时不相连的节点之间往往会具备更加关键的相关程度，因此节点之间距离度量就需要根据任务和训练的过程而动态的变化，同时据此生成变化的拉普拉斯矩阵。不同的任务下度量标准的生成目标也不痛：非监督学习任务下最优的度量标准是让类间距离最大，类内距离最小；而监督学习之下任务就是让损失函数最小化。这里给出一个一般化的Mahalanobis distance定义：
+$$\mathbb{D}(x_i,x_j)=\sqrt{(x_i-x_j)^TM(x_i-x_j)}$$
+通过$M=W_dW_d^T$限定$M$是对称半正定矩阵，其中$W_d\in\mathbb{R}^{d\times d}$是一组空间变换的基，这里需要注意的是，如果只通过矩阵$M$进行变换，这只不过是将欧式空间内的距离进行空间变换得到的结果，如果要处理更加复杂的空间距离分配，就需要进行更加高维的变换，文中在这里采用了高斯核变换的方式：
+$$\mathbb{G}_{x_i,x_j}=\exp(-\mathbb{D}(x_i,x_j)/(2\sigma^2))$$
+通过上面的公式就可以得到一个稠密图的邻接矩阵$\tilde{A}$，$W_d$是需要学习的参数
+##### Re-parameterization on feature transform 
+这篇文章中对这一项的解释有一些奇怪，我的理解上如下的变换形式导致的是输出层中不同的通道由原来的均匀的从输入通道之间加和，改变成为通过不同的权重进行取舍，这样不会要求很多的参数同时也增加了模型的复杂程度：
+$$Y=(Ug_{\theta}(\Lambda)U^TX)W+b$$
+##### Residual Graph Laplacian
+在度量标准的衡量之中，如果我们完全以随机初始的$M$计算拉普拉斯矩阵，会导致整体的收敛过程较难，所以为了加速训练过程，增强训练稳定程度，文中假设动态的拉普拉斯矩阵是在给定的固有的拉普拉斯矩阵$L$之上的扰动：
+$$\hat{L}=L+\alpha L_{res}$$
+因此我们只需要通过学习得到拉普拉斯矩阵的残差即可。有了SCG-LL再通过增加一些双边滤波器的方式就可以得到完整的网络结构，这部分细节可以参考原文
+以下是SCG-LL层的计算流程以及整体上AGCN的网络结构
+![SCG-LL layer](../pics/SCG-LL.png)
+![AGCN struct](../pics/ACGN.png)
+### 采样与推断式的学习
 
 ## 空间视角
 以上的内容都是来自于从谱视角进行的对图特征的提取，这种方法下的图卷积有着严密的数学推导与很好的实验效果，但是一个严峻的问题就在于这样的图卷积操作依赖于图的拉普拉斯矩阵，当图的结构发生变化时往往不能进行很好的泛化，就如下图中展示的：
